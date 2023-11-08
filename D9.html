@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html>
+
+<!--
+D3.js Assignment 01
+W. S. V. Lakshan
+
+Functionalities
+
+This is an interactive map 
+This will plot towns we get from JSON feed into UK Map
+User can select how many towns needs to be plotted
+User can zoom in and zoom out
+User can see a list of towns plotted in the Map
+User can select a town on the list and it will be highlighted
+
+This application is not using media queries to adjust it view on different devices.
+It may overlap the map and list 
+-->
+
+<!---
+https://observablehq.com/@d3/learn-d3
+https://d3js.org/
+https://www.w3schools.com/js/
+https://www.w3schools.com/html/default.asp
+https://www.w3schools.com/css/default.asp
+https://leafletjs.com/examples.html
+--->
+
+<head>
+
+	<!--Importing leaflet library, D3.js Library-->
+	<!--Importing D3.js library-->
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+
+
+</head>
+
+<body>
+	<!--
+	Creating a button to reload the data and slider to adjust the value of towns plot according user request
+	References:https://www.w3schools.com/html/default.asp
+	-->
+    <button id="btnreload">Reload Data</button>
+    <input type="range" id="sldtown" min="1" max="500" value="50">
+    <!--Creating Div element to put a list to show the towns plot on the map-->
+    <div id="town-list" style="position: absolute; top: 10px; right: 10px; background: white; padding: 10px; height: 500px; overflow: auto;">
+        <h2>Click on Towns</h2>
+        <ul id="towns"></ul>
+    </div>
+
+	<!--Creating Div element to put the Leaflet map - Map will be displayed inside this Div element. It will act as the container for the map-->
+    <div id="map-container" style="width: 70%; height: 700px;"></div>
+
+    <script>
+		//Iniliazing a map instance and setting the loading view to center of UK
+		//55.3781° N, 3.4360° W Reference: https://www.google.com/search?q=geographic+cordinates+for+center+of+united+kingdom&oq=geographic+cordinates+for+center+of+united+kingdom&gs_lcrp=EgZjaHJvbWUqBggAEEUYOzIGCAAQRRg70gEINjE1NGowajGoAgCwAgA&sourceid=chrome&ie=UTF-8#cobssid=s
+		//Value was changed to negative to center the map
+		//Reference: https://leafletjs.com/examples/quick-start/
+		//Next tile layer will be created. This will allow to display map data from leaflet
+		//Finally copyright notice is added to the displaying leaflet map
+		//Value 6 is the initial zoom
+        const map = L.map('map-container').setView([55.4, -3.4], 6);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        }).addTo(map);
+		
+		//Leaflet allows to custom the markers appear on the map
+		//For my assignment custom markers will be circles
+		//Reference: https://leafletjs.com/examples/custom-icons/
+		//class name will load up the structure from the CSS for the circles.
+        const Pointer = L.divIcon({
+            className: 'circles',
+            iconSize: [12, 12],
+            html: '<div class="circle"></div>',
+        });
+
+        // Create a layer group to store markers
+		//This will help to add or remove group of markers at once
+		//This will help to plot our city markers and update them whenever needed by calling to markerlayer
+		//Reference: https://leafletjs.com/examples/layers-control/#layer-groups
+        const markerLayer = L.layerGroup().addTo(map);
+
+		//https://leafletjs.com/examples/custom-icons/
+		//https://www.w3schools.com/js/default.asp
+		//This function will help to plot two colors
+		//When user clicks on a town the marker turns green
+		//Other markers wil be same as red
+		function changeMarkerColor(selectedTown) {
+			markerLayer.eachLayer((marker) => {
+			const townData = marker.getPopup().getContent();
+				if (townData.includes(selectedTown.Town)) {
+					marker.setIcon(L.divIcon({
+					className: 'circles',
+					iconSize: [12, 12],
+					html: '<div class="circle selected"></div>',
+				}));
+				} else {
+					marker.setIcon(L.divIcon({
+					className: 'circles',
+					iconSize: [12, 12],
+					html: '<div class="circle"></div>',
+				}));
+			}
+		});
+	}
+
+
+
+		//This function will show a list of twon plotted with their respective population
+    	//Further when user clicks on one of the towns it will be highlighted in the map
+		function updateTownList(townData) {
+            const townList = document.getElementById('towns');
+            townList.innerHTML = ''; 
+		
+            townData.forEach((town) => {
+                const listItem = document.createElement('li');
+                listItem.textContent = `${town.Town}, Population: ${town.Population}`;
+				listItem.addEventListener('click', () => {
+					changeMarkerColor(town)
+			});
+                townList.appendChild(listItem);
+            });
+        }
+
+		//This javascript function will plot towns on the map
+        function plotTowns(townData) {
+            // Clear existing markers from the map
+            markerLayer.clearLayers();
+            updateTownList(townData)
+			//Reference: https://leafletjs.com/index.html#marker
+			//forEach loop will iterate through data retrievd by the JSON feed
+			//It will plot circle mark on each of longitude and latitude pairs
+			//bindpopup is a pop up which we can use to display information
+			//In this assignment Town name and population variable values will be passed to dispaly on the popup
+            townData.forEach((town) => {
+                const marker = L.marker([town.lat, town.lng], { icon: Pointer })
+                    .bindPopup(`${town.Town}, Population: ${town.Population}`)
+                    .openPopup();
+                markerLayer.addLayer(marker);
+            });
+        }
+
+		//Customize circle marker on the map
+		//This circle styles will be called upon as the marker
+		//Reference: https://www.w3schools.com/css/default.asp
+        const circleStyles = `
+            .circles {
+                text-align: center;
+                line-height: 0;
+            }
+
+            .circle {
+                width: 12px;
+                height: 12px;
+                background-color: #ff5733;
+                border-radius: 50%;
+            }
+
+	    .selected { 
+		background-color: #33ff57;  
+	    }
+
+        `;
+
+		//Adding css file to markers
+        const styleSheet = document.createElement("style");
+        styleSheet.type = "text/css";
+        styleSheet.innerText = circleStyles;
+        document.head.appendChild(styleSheet);
+		
+		//This function will et the data from the JSON feed
+		//{numTowns} This variable will get the user defined value from slider created
+		//Reference: https://www.freecodecamp.org/news/how-to-read-json-file-in-javascript/
+		//This function will pass the data from the JSON field to Plot Town function
+        function handleSliderInput() {
+            const numTowns = document.getElementById("sldtown").value;
+            fetch(`http://34.38.72.236/Circles/Towns/${numTowns}`)
+                .then((response) => response.json())
+                .then((data) => plotTowns(data));
+        }
+
+		//Event listner to handle changes in th slider
+		//If user changes value of slider this will identify that change and call handleslider function
+		//Reference: https://d3js.org/getting-started 
+		//			 https://observablehq.com/@d3/gallery?utm_source=d3js-org&utm_medium=nav&utm_campaign=try-observable
+        d3.select("#sldtown").on("input", handleSliderInput);
+
+	//Getting data from the JSON feed and assigning them to respones
+	//Then passing those data points to plotTown function
+	//Reference: https://developer.mozilla.org/en-US/docs/Web/API/Response/json
+        fetch("http://34.38.72.236/Circles/Towns/50")
+            .then((response) => response.json())
+            .then(plotTowns);
+
+		//Event Listner to handle reload button
+		//If user press reload button this will load new set of data points identifying the change
+        d3.select("#btnreload").on("click", function () {
+            const numTowns = document.getElementById("sldtown").value;
+            fetch(`http://34.38.72.236/Circles/Towns/${numTowns}`)
+                .then((response) => response.json())
+                .then(plotTowns);
+        });
+    </script>
+</body>
+
+</html>
